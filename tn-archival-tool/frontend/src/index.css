@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-slate-50 text-slate-800;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply border border-slate-200 px-2 py-2 rounded-md;
+  }
+}
+
+@layer components {
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-md transition-all text-slate-300;
+  }
+
+  .nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .nav-active {
+    @apply bg-slate-800;
+    border-left: 4px solid #378add;
+  }
+
+  .stat-card {
+    border-top: 4px solid #378add;
+  }
+
+  .status-completed {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .status-pending {
+    @apply bg-amber-100 text-amber-800;
+  }
+
+  .status-processing {
+    @apply bg-blue-100 text-blue-800;
+  }
+}
