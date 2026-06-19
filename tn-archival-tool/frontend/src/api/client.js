@@ -88,6 +88,13 @@ export const api = {
   
   me: () => request('/auth/me'),
 
+  // Users Management
+  users: {
+    list: () => request('/users/'),
+    create: (data) => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+
   // Cases
   cases: {
     list: () => request('/cases'),
@@ -114,6 +121,14 @@ export const api = {
   reports: {
     dashboardStats: () => request('/reports/dashboard-stats'),
     generate: () => request('/reports/generate', { method: 'POST' }),
+  },
+
+  // Settings & Credentials
+  settings: {
+    get: () => request('/settings'),
+    update: (data) => request('/settings', { method: 'PATCH', body: JSON.stringify(data) }),
+    getCredentials: () => request('/settings/credentials'),
+    saveCredential: (data) => request('/settings/credentials', { method: 'POST', body: JSON.stringify(data) }),
   },
 }
 

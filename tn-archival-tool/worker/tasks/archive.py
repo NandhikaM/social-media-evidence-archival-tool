@@ -35,8 +35,8 @@ if backend_path not in sys.path:
     sys.path.append(backend_path)
 
 from app.config import get_settings
-from app.database import AsyncSessionLocal
-from app.models import ArchiveRequest, ArchiveStatus, Record
+from app.database import AsyncSessionLocal, engine
+from app.models import ArchiveRequest, ArchiveStatus, Record, Platform, Credential
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -76,6 +76,168 @@ def find_exiftool() -> str | None:
     return None
 
 
+def dismiss_cookie_consent(driver):
+    """Dismiss cookie consent/banners on social media platforms."""
+    try:
+        from selenium.webdriver.common.by import By
+        logger.info("Checking for cookie consent banner...")
+        # Common selectors for cookie consent acceptance buttons on Meta / Twitter
+        selectors = [
+            "button[data-cookiebanner='accept_button']",
+            "button[data-testid='cookie-policy-manage-dialog-accept-button']",
+            "//button[contains(text(), 'Allow all cookies')]",
+            "//button[contains(text(), 'Allow essential and optional cookies')]",
+            "//button[contains(text(), 'Accept All')]",
+            "//button[contains(text(), 'Accept all')]",
+            "//button[contains(text(), 'Decline optional cookies')]",
+            "//button[contains(text(), 'Only allow essential cookies')]",
+            "//div[@role='button']//span[contains(text(), 'Allow all cookies')]",
+            "//div[@role='button']//span[contains(text(), 'Accept all')]"
+        ]
+        for sel in selectors:
+            try:
+                if sel.startswith("//"):
+                    btn = driver.find_element(By.XPATH, sel)
+                else:
+                    btn = driver.find_element(By.CSS_SELECTOR, sel)
+                if btn.is_displayed():
+                    btn.click()
+                    logger.info("Dismissed cookie consent banner using: %s", sel)
+                    time.sleep(3)
+                    break
+            except Exception:
+                continue
+    except Exception as e:
+        logger.warning("Error dismissing cookie consent: %s", e)
+
+
+def login_instagram(driver, username, password):
+    """Log in to Instagram."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        logger.info("Automating Instagram login...")
+        wait = WebDriverWait(driver, 15)
+
+        dismiss_cookie_consent(driver)
+
+        user_input = wait.until(EC.element_to_be_clickable((By.NAME, "username")))
+        pass_input = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
+
+        user_input.clear()
+        user_input.send_keys(username)
+        pass_input.clear()
+        pass_input.send_keys(password)
+
+        login_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']")))
+        login_btn.click()
+
+        time.sleep(8)
+        logger.info("Successfully completed Instagram login automation.")
+    except Exception as e:
+        logger.warning("Instagram automated login failed: %s", e)
+
+
+def login_facebook(driver, username, password):
+    """Log in to Facebook."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        logger.info("Automating Facebook login...")
+        wait = WebDriverWait(driver, 15)
+
+        dismiss_cookie_consent(driver)
+
+        user_input = wait.until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "input[name='email'], input[id='email']")
+            )
+        )
+        pass_input = wait.until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "input[name='pass'], input[id='pass']")
+            )
+        )
+
+        user_input.clear()
+        user_input.send_keys(username)
+        pass_input.clear()
+        pass_input.send_keys(password)
+
+        try:
+            login_btn = wait.until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "button[name='login'], button[type='submit']")
+                )
+            )
+        except Exception:
+            login_btn = wait.until(
+                EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "input[type='submit']")
+                )
+            )
+
+        login_btn.click()
+        time.sleep(8)
+        logger.info("Successfully completed Facebook login automation.")
+    except Exception as e:
+        logger.warning("Facebook automated login failed: %s", e)
+
+
+def login_twitter(driver, username, password):
+    """Log in to Twitter/X."""
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        logger.info("Automating Twitter/X login...")
+        wait = WebDriverWait(driver, 15)
+
+        dismiss_cookie_consent(driver)
+
+        # Wait for username input
+        user_input = wait.until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "input[autocomplete='username'], input[name='text']")
+            )
+        )
+        user_input.clear()
+        user_input.send_keys(username)
+        user_input.send_keys(Keys.ENTER)
+        time.sleep(3)
+
+        try:
+            # Check if unusual activity verification (username/phone) is requested
+            alt_input = driver.find_element(
+                By.CSS_SELECTOR, "input[data-testid='ocfEnterTextTextInput']"
+            )
+            if alt_input.is_displayed():
+                alt_input.send_keys(username)
+                alt_input.send_keys(Keys.ENTER)
+                time.sleep(3)
+        except Exception:
+            pass
+
+        # Wait for password input
+        pass_input = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "input[name='password']"))
+        )
+        pass_input.clear()
+        pass_input.send_keys(password)
+        pass_input.send_keys(Keys.ENTER)
+
+        time.sleep(8)
+        logger.info("Successfully completed Twitter/X login automation.")
+    except Exception as e:
+        logger.warning("Twitter/X automated login failed: %s", e)
+
+
 async def async_process_archive_request(request_id: int) -> dict:
     logger.info("Processing archive request ID: %s", request_id)
 
@@ -94,6 +256,14 @@ async def async_process_archive_request(request_id: int) -> dict:
         # Update status to processing
         db_req.status = ArchiveStatus.PROCESSING
         await session.commit()
+
+        platform_str = db_req.platform.value if hasattr(db_req.platform, 'value') else str(db_req.platform)
+        platform_str = platform_str.lower()
+
+        db_credential = None
+        if platform_str in ["instagram", "facebook", "twitter"]:
+            cred_stmt = select(Credential).where(Credential.platform == platform_str)
+            db_credential = await session.scalar(cred_stmt)
 
         driver = None
         screenshot_path = ""
@@ -116,8 +286,22 @@ async def async_process_archive_request(request_id: int) -> dict:
                 edge_options.add_argument("--no-sandbox")
                 edge_options.add_argument("--disable-dev-shm-usage")
                 edge_options.add_argument("--window-size=1280,1024")
+                edge_options.add_argument("--disable-blink-features=AutomationControlled")
+                edge_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                edge_options.add_experimental_option("useAutomationExtension", False)
+                edge_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+                profile_dir = os.path.abspath(
+                    os.path.join(backend_path, "selenium_profiles", "edge")
+                )
+                os.makedirs(profile_dir, exist_ok=True)
+                edge_options.add_argument(f"--user-data-dir={profile_dir}")
+
                 driver = webdriver.Edge(options=edge_options)
-                logger.info("Initialized Edge driver.")
+                driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                    "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                })
+                logger.info("Initialized Edge driver with persistent profile and stealth options.")
             except Exception as edge_err:
                 logger.warning("Edge driver failed, trying Chrome: %s", edge_err)
                 chrome_options = ChromeOptions()
@@ -126,13 +310,147 @@ async def async_process_archive_request(request_id: int) -> dict:
                 chrome_options.add_argument("--no-sandbox")
                 chrome_options.add_argument("--disable-dev-shm-usage")
                 chrome_options.add_argument("--window-size=1280,1024")
+                chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+                chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                chrome_options.add_experimental_option("useAutomationExtension", False)
+                chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+                profile_dir = os.path.abspath(
+                    os.path.join(backend_path, "selenium_profiles", "chrome")
+                )
+                os.makedirs(profile_dir, exist_ok=True)
+                chrome_options.add_argument(f"--user-data-dir={profile_dir}")
+
                 driver = webdriver.Chrome(options=chrome_options)
-                logger.info("Initialized Chrome driver.")
+                driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                    "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                })
+                logger.info("Initialized Chrome driver with persistent profile and stealth options.")
+
+            # 1.5 Automated Social Media Login (if credentials configured)
+            if db_credential:
+                if platform_str == "instagram":
+                    login_url = "https://www.instagram.com/accounts/login/"
+                elif platform_str == "facebook":
+                    login_url = "https://www.facebook.com/"
+                elif platform_str == "twitter":
+                    login_url = "https://x.com/i/flow/login"
+                else:
+                    login_url = ""
+
+                if login_url:
+                    logger.info("Accessing %s login page to verify session...", platform_str)
+                    driver.get(login_url)
+                    time.sleep(5)
+
+                    # Check if login fields are present
+                    has_login_fields = False
+                    if platform_str == "instagram":
+                        try:
+                            driver.find_element("css selector", "input[name='username']")
+                            has_login_fields = True
+                        except Exception:
+                            pass
+                    elif platform_str == "facebook":
+                        try:
+                            driver.find_element(
+                                "css selector", "input[name='email'], input[id='email']"
+                            )
+                            has_login_fields = True
+                        except Exception:
+                            pass
+                    elif platform_str == "twitter":
+                        try:
+                            driver.find_element(
+                                "css selector",
+                                "input[autocomplete='username'], input[name='text']",
+                            )
+                            has_login_fields = True
+                        except Exception:
+                            pass
+
+                    if has_login_fields:
+                        logger.info(
+                            "Login fields detected. Attempting automated login for %s...",
+                            platform_str,
+                        )
+                        if platform_str == "instagram":
+                            login_instagram(
+                                driver, db_credential.username, db_credential.password
+                            )
+                        elif platform_str == "facebook":
+                            login_facebook(
+                                driver, db_credential.username, db_credential.password
+                            )
+                        elif platform_str == "twitter":
+                            login_twitter(
+                                driver, db_credential.username, db_credential.password
+                            )
+                    else:
+                        logger.info("No login fields detected. Reusing existing session cookies.")
 
             # 2. Load URL
             logger.info("Navigating to URL: %s", db_req.url)
             driver.get(db_req.url)
             time.sleep(5)  # Allow page JS elements/images to render
+
+            # Scroll down gradually to trigger lazy loading of media assets (images/videos)
+            try:
+                logger.info("Scrolling page down to trigger lazy loading of assets...")
+                for i in range(1, 6):
+                    driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight * {i} / 5);")
+                    time.sleep(1)
+                logger.info("Scrolling back to top...")
+                driver.execute_script("window.scrollTo(0, 0);")
+                time.sleep(1.5)
+            except Exception as scroll_err:
+                logger.warning("Failed scrolling lazy-loaded elements: %s", scroll_err)
+
+            # Inject a mock browser frame at the top of the body for forensic URL proof
+            try:
+                logger.info("Injecting mock browser frame header into webpage...")
+                inject_script = """
+                (function() {
+                    const url = window.location.href;
+                    const title = document.title || "Social Media Post";
+                    
+                    if (document.getElementById("forensic-browser-chrome-bar")) return;
+                    
+                    const browserBar = document.createElement("div");
+                    browserBar.id = "forensic-browser-chrome-bar";
+                    browserBar.style.cssText = "position: relative; top: 0; left: 0; width: 100%; height: 75px; background: #202124; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box; display: flex; flex-direction: column; z-index: 2147483647; border-bottom: 1px solid #3c4043; padding: 0; margin: 0;";
+                    
+                    browserBar.innerHTML = `
+                      <div style="display: flex; align-items: center; height: 35px; padding: 0 10px; background: #202124; margin: 0;">
+                        <div style="display: flex; gap: 6px; margin-right: 15px; align-items: center;">
+                          <div style="width: 10px; height: 10px; background: #ff5f56; border-radius: 50%;"></div>
+                          <div style="width: 10px; height: 10px; background: #ffbd2e; border-radius: 50%;"></div>
+                          <div style="width: 10px; height: 10px; background: #27c93f; border-radius: 50%;"></div>
+                        </div>
+                        <div style="display: flex; align-items: center; background: #35363a; height: 28px; padding: 0 12px; border-radius: 8px 8px 0 0; font-size: 11px; max-width: 250px; min-width: 150px; color: #f1f3f4; border: 1px solid #3c4043; border-bottom: none; margin-top: 7px;">
+                          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${title}</span>
+                        </div>
+                      </div>
+                      <div style="display: flex; align-items: center; height: 40px; background: #35363a; padding: 0 10px; gap: 10px; margin: 0;">
+                        <div style="display: flex; gap: 12px; color: #9aa0a6; font-size: 14px; align-items: center;">
+                          <span style="font-weight: bold; cursor: default;">&larr;</span>
+                          <span style="font-weight: bold; cursor: default;">&rarr;</span>
+                          <span style="font-weight: bold; cursor: default;">&#x21BB;</span>
+                        </div>
+                        <div style="flex: 1; display: flex; align-items: center; background: #202124; border-radius: 20px; height: 26px; padding: 0 12px; font-size: 12px; color: #e8eaed; border: 1px solid #3c4043;">
+                          <span style="color: #81c995; margin-right: 6px; font-size: 10px;">&#x1F512;</span>
+                          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 850px; display: inline-block;">${url}</span>
+                        </div>
+                        <div style="color: #9aa0a6; font-size: 16px; font-weight: bold; padding: 0 5px; cursor: default;">&vellip;</div>
+                      </div>
+                    `;
+                    document.body.insertBefore(browserBar, document.body.firstChild);
+                })();
+                """
+                driver.execute_script(inject_script)
+                time.sleep(1)
+            except Exception as inject_err:
+                logger.warning("Failed to inject mock browser frame: %s", inject_err)
 
             # 3. Capture Screenshot
             screenshot_filename = f"screenshot_{request_id}.png"
@@ -197,6 +515,100 @@ async def async_process_archive_request(request_id: int) -> dict:
             else:
                 logger.warning("ExifTool executable not found. Skipping metadata injection.")
 
+            # 5.5 Automatic Media Downloader for Instagram/Facebook
+            downloaded_media = []
+            if db_req.platform in [Platform.INSTAGRAM, Platform.FACEBOOK] or "instagram.com" in db_req.url or "facebook.com" in db_req.url:
+                logger.info("Instagram or Facebook URL detected. Attempting to parse and download media assets...")
+                try:
+                    media_urls = []
+                    # Find image elements
+                    images = driver.find_elements("tag name", "img")
+                    for img in images:
+                        try:
+                            src = img.get_attribute("src")
+                            width = img.size.get("width", 0)
+                            height = img.size.get("height", 0)
+                            # Fallback to DOM attributes
+                            dom_w = img.get_attribute("width")
+                            dom_h = img.get_attribute("height")
+                            try:
+                                if dom_w:
+                                    width = max(width, int(dom_w))
+                                if dom_h:
+                                    height = max(height, int(dom_h))
+                            except ValueError:
+                                pass
+                            
+                            # Exclude small images, avatars, or icons
+                            if src and src.startswith("http") and (width >= 100 or height >= 100 or width == 0):
+                                if src not in [m[0] for m in media_urls]:
+                                    media_urls.append((src, "image"))
+                        except Exception:
+                            continue
+
+                    # Find video elements
+                    videos = driver.find_elements("tag name", "video")
+                    for video in videos:
+                        try:
+                            src = video.get_attribute("src")
+                            if src and src.startswith("http"):
+                                if src not in [m[0] for m in media_urls]:
+                                    media_urls.append((src, "video"))
+                        except Exception:
+                            continue
+
+                    # Download up to 5 media files
+                    if media_urls:
+                        import httpx
+                        media_dir = os.path.join(evidence_dir, "media")
+                        os.makedirs(media_dir, exist_ok=True)
+                        
+                        headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        }
+                        
+                        max_media = 5
+                        count = 0
+                        for src, media_type in media_urls:
+                            if count >= max_media:
+                                break
+                            try:
+                                r = httpx.get(src, headers=headers, timeout=10.0, follow_redirects=True)
+                                if r.status_code == 200:
+                                    ext = ".jpg" if media_type == "image" else ".mp4"
+                                    content_type = r.headers.get("content-type", "")
+                                    if "image/png" in content_type:
+                                        ext = ".png"
+                                    elif "image/gif" in content_type:
+                                        ext = ".gif"
+                                    elif "video/mp4" in content_type:
+                                        ext = ".mp4"
+                                    elif "image/jpeg" in content_type:
+                                        ext = ".jpg"
+                                    
+                                    media_filename = f"media_{request_id}_{count}{ext}"
+                                    media_path = os.path.join(media_dir, media_filename)
+                                    with open(media_path, "wb") as f:
+                                        f.write(r.content)
+                                    
+                                    media_hash = get_sha256(media_path)
+                                    relative_path = f"evidence/{db_req.case.case_number}/media/{media_filename}"
+                                    
+                                    downloaded_media.append({
+                                        "path": relative_path,
+                                        "type": media_type,
+                                        "sha256": media_hash,
+                                        "src_url": src
+                                    })
+                                    count += 1
+                                    logger.info("Downloaded media asset %s from %s", count, src)
+                            except Exception as dl_err:
+                                logger.warning("Failed to download media asset from %s: %s", src, dl_err)
+                except Exception as parse_err:
+                    logger.warning("Failed to parse media elements from page: %s", parse_err)
+
+            metadata_payload["downloaded_media"] = downloaded_media
+
             # 6. Compute SHA-256 integrity hash
             logger.info("Computing SHA-256 hashes...")
             screenshot_hash = get_sha256(screenshot_path)
@@ -241,6 +653,11 @@ async def async_process_archive_request(request_id: int) -> dict:
                     driver.quit()
                 except Exception as quit_err:
                     logger.warning("Error quitting webdriver: %s", quit_err)
+            try:
+                await engine.dispose()
+                logger.info("SQLAlchemy engine connection pool disposed successfully.")
+            except Exception as dispose_err:
+                logger.warning("Failed to dispose SQLAlchemy engine: %s", dispose_err)
 
 
 def process_archive_request(request_id: int) -> dict:

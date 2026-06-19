@@ -12,6 +12,7 @@ from app.models import (  # noqa: F401 — register models with metadata
     ArchiveRequest,
     AuditLog,
     Case,
+    Credential,
     Record,
     Remark,
     User,

@@ -24,7 +24,7 @@ class User(Base):
         pg_enum(UserRole, "user_role"),
         default=UserRole.INVESTIGATING_OFFICER,
     )
-    district: Mapped[str] = mapped_column(String(100))
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

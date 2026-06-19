@@ -246,6 +246,62 @@ export default function RecordDetails() {
             </div>
           </div>
 
+          {/* Associated Media Attachments */}
+          {meta.downloaded_media && meta.downloaded_media.length > 0 && (
+            <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <IconPhoto className="text-accent-blue" size={20} /> Associated Media Attachments ({meta.downloaded_media.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {meta.downloaded_media.map((media, index) => {
+                  const mediaUrl = `http://localhost:8000/${media.path}`;
+                  return (
+                    <div key={index} className="border rounded-lg overflow-hidden bg-slate-50 flex flex-col">
+                      <div className="relative aspect-video flex items-center justify-center bg-black overflow-hidden group/media">
+                        {media.type === 'image' ? (
+                          <img
+                            src={mediaUrl}
+                            alt={`Media asset ${index + 1}`}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <video
+                            src={mediaUrl}
+                            controls
+                            className="max-h-full max-w-full"
+                          />
+                        )}
+                        <div className="absolute top-2 right-2 bg-slate-900/80 text-white text-[9px] px-2 py-0.5 rounded font-bold uppercase">
+                          {media.type}
+                        </div>
+                      </div>
+                      <div className="p-3 text-xs flex-1 flex flex-col justify-between">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">SHA256 Hash</p>
+                          <p className="font-mono text-[10px] break-all bg-white p-1.5 rounded border leading-tight">
+                            {media.sha256}
+                          </p>
+                        </div>
+                        <div className="mt-3 pt-2 border-t flex justify-between items-center">
+                          <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold uppercase">
+                            <IconShieldCheck size={12} /> Verified
+                          </span>
+                          <a
+                            href={mediaUrl}
+                            download
+                            className="text-blue-600 hover:text-blue-500 font-bold flex items-center gap-0.5"
+                          >
+                            <IconDownload size={12} /> Download
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Investigation Remarks */}
           <div className="bg-white p-6 rounded-lg border shadow-sm">
             <h4 className="font-bold text-slate-800 mb-4">Investigation Remarks</h4>

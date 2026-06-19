@@ -15,14 +15,14 @@ class ArchiveRequestBase(BaseModel):
 class ArchiveRequestCreate(ArchiveRequestBase):
     case_number: str
     fir_number: str | None = None
-    district: str
+    district: str | None = None
     priority: str = "normal"
 
 
 class BulkArchiveRequestCreate(BaseModel):
     case_number: str
     fir_number: str | None = None
-    district: str
+    district: str | None = None
     priority: str = "normal"
     platform: Platform
     urls: list[str]

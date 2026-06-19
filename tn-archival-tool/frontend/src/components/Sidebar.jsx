@@ -44,6 +44,13 @@ export default function Sidebar({ user, onLogout }) {
   const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'IO'
   const roleDisplay = user?.role === 'system_admin' ? 'System Administrator' : 'Investigating Officer'
 
+  const filteredAdminNav = adminNav.filter(item => {
+    if (item.to === '/users' && user?.role !== 'system_admin') {
+      return false
+    }
+    return true
+  })
+
   return (
     <aside className="bg-sidebar-dark w-64 flex-shrink-0 flex flex-col text-slate-300">
       <div className="p-6 flex items-center gap-3">
@@ -69,7 +76,7 @@ export default function Sidebar({ user, onLogout }) {
         <p className="px-3 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">
           Reports &amp; Admin
         </p>
-        {adminNav.map((item) => (
+        {filteredAdminNav.map((item) => (
           <NavItem key={item.to} {...item} />
         ))}
       </nav>

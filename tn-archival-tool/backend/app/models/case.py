@@ -20,7 +20,7 @@ class Case(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     case_number: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     fir_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    district: Mapped[str] = mapped_column(String(100))
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     priority: Mapped[CasePriority] = mapped_column(
         pg_enum(CasePriority, "case_priority"),
         default=CasePriority.NORMAL,

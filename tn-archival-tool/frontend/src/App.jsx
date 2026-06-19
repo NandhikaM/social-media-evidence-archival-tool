@@ -72,7 +72,7 @@ export default function App() {
         <Route path="archived-records" element={<ArchivedRecords />} />
         <Route path="record-details" element={<RecordDetails />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="users" element={<Users />} />
+        <Route path="users" element={user?.role === 'system_admin' ? <Users /> : <Navigate to="/" replace />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

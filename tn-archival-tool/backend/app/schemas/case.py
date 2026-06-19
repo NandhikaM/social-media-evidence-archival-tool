@@ -8,7 +8,7 @@ from app.models.case import CasePriority
 class CaseBase(BaseModel):
     case_number: str = Field(..., pattern=r"^CYB-\d{4}-\d{3}$")
     fir_number: str | None = None
-    district: str
+    district: str | None = None
     priority: CasePriority = CasePriority.NORMAL
 
 

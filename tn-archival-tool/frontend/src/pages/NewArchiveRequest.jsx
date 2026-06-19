@@ -3,6 +3,16 @@ import { useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import api from '../api/client'
 
+const TAMIL_NADU_DISTRICTS = [
+  "Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli",
+  "Vellore", "Erode", "Thoothukudi", "Dindigul", "Kancheepuram", "Thanjavur",
+  "Tiruppur", "Ranipet", "Krishnagiri", "Namakkal", "Cuddalore", "Ariyalur",
+  "Chengalpattu", "Dharmapuri", "Kallakurichi", "Kanyakumari", "Karur",
+  "Mayiladuthurai", "Nagapattinam", "Nilgiris", "Perambalur", "Pudukkottai",
+  "Ramanathapuram", "Sivagangai", "Tenkasi", "Theni", "Tiruvallur",
+  "Tiruvannamalai", "Tiruvarur", "Tirupathur", "Villupuram", "Virudhunagar"
+]
+
 export default function NewArchiveRequest() {
   const { user } = useOutletContext()
   const navigate = useNavigate()
@@ -11,7 +21,7 @@ export default function NewArchiveRequest() {
   // Form States
   const [caseNumber, setCaseNumber] = useState('')
   const [firNumber, setFirNumber] = useState('')
-  const [district, setDistrict] = useState(user?.district || 'Chennai')
+  const [district, setDistrict] = useState(user?.district || '')
   const [priority, setPriority] = useState('normal')
   const [platform, setPlatform] = useState('facebook')
   const [url, setUrl] = useState('')
@@ -180,18 +190,17 @@ export default function NewArchiveRequest() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase">District *</label>
+              <label className="text-xs font-bold text-slate-500 uppercase">District (Optional)</label>
               <select
                 className="w-full"
                 value={district}
                 onChange={(e) => setDistrict(e.target.value)}
                 disabled={submitting}
               >
-                <option value="Chennai">Chennai</option>
-                <option value="Madurai">Madurai</option>
-                <option value="Coimbatore">Coimbatore</option>
-                <option value="Salem">Salem</option>
-                <option value="Tiruchirappalli">Tiruchirappalli</option>
+                <option value="">Select district (Optional)</option>
+                {TAMIL_NADU_DISTRICTS.map((city) => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">

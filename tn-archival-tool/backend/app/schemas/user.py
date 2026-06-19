@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     username: str
     full_name: str
     role: UserRole = UserRole.INVESTIGATING_OFFICER
-    district: str
+    district: str | None = None
 
 
 class UserCreate(UserBase):
